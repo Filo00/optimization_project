@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from functions import sigmoid
+from joblib import Memory
+from sklearn.datasets import load_svmlight_file
+from scipy.sparse import lil_matrix, hstack
+
 def generate_synthetic_data(N=100, p=10, seed=42):
     """
     Genera un dataset sintetico per la regressione logistica.
@@ -58,3 +62,28 @@ def evaluate_accuracy(X_test, y_test, w):
     y_pred = np.where(prob > 0.5, 1, 0)
     accuracy = np.mean(y_pred == y_test)
     return accuracy
+
+
+mem = Memory("./mycache")
+@mem.cache
+def load_a4a(disp=False):
+    path_train = "./dataset/a4a"
+    X_train, y_train = load_svmlight_file(path_train)
+
+    path_test = "./dataset/a4a.t"
+    X_test, y_test = load_svmlight_file(path_test)
+
+    # add constant column
+    X_train_prep = add_intercept(X_train)[:, :120]
+    X_test_prep = add_intercept(X_test)[:, :120]
+
+    if disp:
+        train_sklearn_log(X_train_prep, y_train, X_test_prep, y_test)
+
+    return X_train_prep, y_train, X_test_prep, y_test
+
+def add_intercept(X):
+    ones = lil_matrix(np.ones((X.shape[0], 1)))
+    X_prep = hstack([ones, X.tolil()], format="csr")
+
+    return X_prep

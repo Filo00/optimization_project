@@ -139,8 +139,6 @@ def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, t
     losses = []
     accuracy = []
     steps = []
-    num_backtrack = 0
-    alpha = 1 # Initial step for euristic
     #for i in range(max_iter):
     with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
         for epoch in tepoch:
@@ -153,6 +151,127 @@ def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, t
             steps.append(alpha)
             accuracy.append(utils.evaluate_accuracy(X, y, w))
             tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1])
+            tepoch.update()
+            if np.linalg.norm(grad) <= tol:
+                print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
+                break
+    return w, losses, accuracy, steps
+
+
+def nonmonotone_line_search(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.7, delta=0.5, gamma=0.5):
+    alpha = 1
+    i = 0
+    Qk_new = xi * Qk + 1
+    C_tilde = (xi * Qk * Ck + f(X, y, w, lam)) / (Qk_new)
+    Ck_new = max(C_tilde, f(X, y, w, lam))
+
+    # Condizione nonmonotona
+    while f(X, y, w + alpha * d, lam) > Ck_new - gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+        alpha *= delta  # Backtracking
+        i += 1
+    #print(f"Passo finale: {alpha} - Num backtrack: {i}")
+    return alpha, i, Ck_new, Qk_new
+
+def gradient_descent_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+    w = np.random.rand(X.shape[1])
+    losses = []
+    accuracy = []
+    steps = []
+    Ck = 0
+    Qk = 0
+    with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
+        for epoch in tepoch:
+            tepoch.set_description(f"Epoch {epoch}")
+            grad = grad_fun(X, y, w, lam)
+            alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk)
+            w -= alpha * grad
+            loss = loss_fun(X, y, w, lam)
+            losses.append(loss)
+            steps.append(alpha)
+            accuracy.append(utils.evaluate_accuracy(X, y, w))
+            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1], Ck=Ck, Qk=Qk)
+            tepoch.update()
+            if np.linalg.norm(grad) <= tol:
+                print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
+                break
+    return w, losses, accuracy, steps
+
+
+def nonmonotone_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.7, delta=0.5, gamma=0.5, initial_step = 1, num_backtrack = 0):
+    """
+    Cerca un passo che soddisfa la condizione nonmonotona con passo iniziale scelto con euristica
+    """
+    #print("Passo iniziale K: " + str(initial_step) + " - Num backtrack: " + str(num_backtrack))
+    alpha = euristic_initial_step(initial_step, num_backtrack)
+    i = 0
+    Qk_new = xi * Qk + 1
+    C_tilde = (xi * Qk * Ck + f(X, y, w, lam)) / (Qk_new)
+    Ck_new = max(C_tilde, f(X, y, w, lam))
+    # Condizione nonmonotona
+    while f(X, y, w + alpha * d, lam) > Ck_new - gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+        alpha *= delta  # Backtracking
+        i += 1
+    #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
+    return alpha, i, Ck_new, Qk_new
+
+def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+    w = np.random.rand(X.shape[1])
+    losses = []
+    accuracy = []
+    steps = []
+    Ck = 0
+    Qk = 0
+    num_backtrack = 0
+    alpha = 1 # Initial step for euristic
+    with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
+        for epoch in tepoch:
+            tepoch.set_description(f"Epoch {epoch}")
+            grad = grad_fun(X, y, w, lam)
+            alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk, xi=0.3, delta=0.5, gamma=0.5, initial_step = alpha, num_backtrack = num_backtrack)
+            w -= alpha * grad
+            loss = loss_fun(X, y, w, lam)
+            losses.append(loss)
+            steps.append(alpha)
+            accuracy.append(utils.evaluate_accuracy(X, y, w))
+            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1], Ck=Ck, Qk=Qk)
+            tepoch.update()
+            if np.linalg.norm(grad) <= tol:
+                print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
+                break
+    return w, losses, accuracy, steps
+
+def nonmonotone_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.7, delta=0.5, gamma=0.5):
+    #print("Passo iniziale K: " + str(initial_step) + " - Num backtrack: " + str(num_backtrack))
+    alpha = polyak_initial_step(X, y, w, lam, f, grad_f)
+    i = 0
+    Qk_new = xi * Qk + 1
+    C_tilde = (xi * Qk * Ck + f(X, y, w, lam)) / (Qk_new)
+    Ck_new = max(C_tilde, f(X, y, w, lam))
+    # Condizione nonmonotona
+    while f(X, y, w + alpha * d, lam) > Ck_new - gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+        alpha *= delta  # Backtracking
+        i += 1
+    #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
+    return alpha, i, Ck_new, Qk_new
+
+def gradient_descent_polyak_initial_step_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+    w = np.random.rand(X.shape[1])
+    losses = []
+    accuracy = []
+    steps = []
+    Ck = 0
+    Qk = 0
+    with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
+        for epoch in tepoch:
+            tepoch.set_description(f"Epoch {epoch}")
+            grad = grad_fun(X, y, w, lam)
+            alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk)
+            w -= alpha * grad
+            loss = loss_fun(X, y, w, lam)
+            losses.append(loss)
+            steps.append(alpha)
+            accuracy.append(utils.evaluate_accuracy(X, y, w))
+            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1], Ck=Ck, Qk=Qk)
             tepoch.update()
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
