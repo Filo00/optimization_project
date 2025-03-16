@@ -37,7 +37,7 @@ def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
         for epoch in tepoch:
             tepoch.set_description(f"Epoch {epoch}")
             grad = grad_fun(X, y, w, lam)
-            alpha, backtrack= step_method(X, y, w, lam, loss_fun, grad, grad_fun)
+            alpha, backtrack= step_method(X, y, w, lam, loss_fun, -grad, grad_fun)
             w -= alpha * grad
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
@@ -50,13 +50,13 @@ def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
                 break
     return w, losses, accuracy, steps
 
-def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.5):   # gamme = 1e-4
+def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4):   # gamme = 1e-4
     """
     Cerca un passo che soddisfa la condizione di Armijo.
     """
     alpha = 1 # Passo iniziale   - 0.02
     i = 0
-    while f(X + alpha * d, y, w, lam) > f(X, y, w, lam) + gamma * alpha * np.dot(grad_f(X, y, w, lam), d): # OTTIMIZZABILE sostituendo con i valori già calcolati
+    while f(X, y, w + alpha * d, lam) > f(X, y, w, lam) + gamma * alpha * np.dot(grad_f(X, y, w, lam), d): # OTTIMIZZABILE sostituendo con i valori già calcolati
         alpha *= delta  # Riduzione del passo
         i += 1
     #print("it per step: " + str(i))
@@ -66,14 +66,14 @@ def fixed_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4):
     return 0.02, 0
 
 
-def armijo_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.5, initial_step = 1, num_backtrack = 0):
+def armijo_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4, initial_step = 1, num_backtrack = 0):
     """
     Cerca un passo che soddisfa la condizione di Armijo con passo iniziale scelto con euristica
     """
     #print("Passo iniziale K: " + str(initial_step) + " - Num backtrack: " + str(num_backtrack))
     alpha = euristic_initial_step(initial_step, num_backtrack)
     i = 0
-    while f(X + alpha * d, y, w, lam) > f(X, y, w, lam) + gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+    while f(X, y, w + alpha * d, lam) > f(X, y, w, lam) + gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
         alpha *= delta  # Riduzione del passo
         i += 1
     #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
@@ -102,7 +102,7 @@ def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, lam,
         for epoch in tepoch:
             tepoch.set_description(f"Epoch {epoch}")
             grad = grad_fun(X, y, w, lam)
-            alpha, num_backtrack = step_method(X, y, w, lam, loss_fun, grad, grad_fun, initial_step = 1, num_backtrack = num_backtrack)
+            alpha, num_backtrack = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, initial_step = alpha, num_backtrack = num_backtrack)
             w -= alpha * grad
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)

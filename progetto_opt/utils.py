@@ -23,17 +23,34 @@ def generate_synthetic_data(N=100, p=10, seed=42):
     y = np.where(y > 0.5, 1, 0)
     return X, y
 
-def plot(losses, title=""):
+def plot_fun(losses, title="", nameFile=""):
     """
     Stampa l'andamento della loss.
     """
-    plt.plot(losses, label='Loss')
+    path = "./plot/" + nameFile + ".pdf"
+    plt.plot(losses, label=title)
     plt.xlabel('Iterazioni')
-    plt.ylabel('Loss')
+    plt.ylabel(title)
     plt.title("Andamento " + str(title))
     plt.xscale("log")
     plt.legend()
-    plt.show()
+    plt.savefig(path)
+    #plt.show()
+
+
+def plot(losses, title="", nameFile=""):
+    path = "./plot/" + nameFile + ".pdf"
+    fig, ax = plt.subplots()
+    ax.plot(losses, color="b")
+
+    # Add title and labels
+    ax.set_title("Andamento " + str(title))
+    ax.set_xlabel('Iterazioni')
+    ax.set_ylabel(title)
+
+    # Add a grid
+    ax.grid(True)
+    plt.savefig(path)
 
 def evaluate_accuracy(X_test, y_test, w):
     from functions import sigmoid
