@@ -44,7 +44,7 @@ def plot(losses, title="", nameFile=""):
     ax.plot(losses, color="b")
 
     # Add title and labels
-    ax.set_title("Andamento " + str(title))
+    ax.set_title(title)
     ax.set_xlabel('Iterazioni')
     ax.set_ylabel(title)
 

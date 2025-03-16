@@ -50,7 +50,7 @@ def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
                 break
     return w, losses, accuracy, steps
 
-def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4):   # gamme = 1e-4
+def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.5):   # gamme = 1e-4
     """
     Cerca un passo che soddisfa la condizione di Armijo.
     """
@@ -66,7 +66,7 @@ def fixed_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4):
     return 0.02, 0
 
 
-def armijo_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4, initial_step = 1, num_backtrack = 0):
+def armijo_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.5, initial_step = 1, num_backtrack = 0):
     """
     Cerca un passo che soddisfa la condizione di Armijo con passo iniziale scelto con euristica
     """
@@ -115,7 +115,46 @@ def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, lam,
                 break
     return w, losses, accuracy, steps
 
+def polyak_initial_step(X, y, w, lam, f, grad_fun, f_min=1e-6):
+    grad_norm_sq = np.linalg.norm(grad_fun(X, y, w, lam)) ** 2
+    if grad_norm_sq == 0:
+        return 1e-3  # Evita divisioni per zero se si trova in un minimo, restituendo un passo piccolo
+    return max((f(X, y, w, lam) - f_min) / grad_norm_sq, 1e-6)  # Imposta un valore minimo per stabilità
 
+def armijo_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, tol, delta=0.5, gamma=0.5):
+    """
+    Cerca un passo che soddisfa la condizione di Armijo con passo iniziale scelto con euristica
+    """
+    #print("Passo iniziale K: " + str(initial_step) + " - Num backtrack: " + str(num_backtrack))
+    alpha = polyak_initial_step(X, y, w, lam, f, grad_f, tol)
+    i = 0
+    while f(X, y, w + alpha * d, lam) > f(X, y, w, lam) + gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+        alpha *= delta  # Riduzione del passo
+        i += 1
+    #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
+    return alpha, i
 
-def polyak_initial_step():
-    pass
+def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+    w = np.random.rand(X.shape[1])
+    losses = []
+    accuracy = []
+    steps = []
+    num_backtrack = 0
+    alpha = 1 # Initial step for euristic
+    #for i in range(max_iter):
+    with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
+        for epoch in tepoch:
+            tepoch.set_description(f"Epoch {epoch}")
+            grad = grad_fun(X, y, w, lam)
+            alpha, num_backtrack = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, tol)
+            w -= alpha * grad
+            loss = loss_fun(X, y, w, lam)
+            losses.append(loss)
+            steps.append(alpha)
+            accuracy.append(utils.evaluate_accuracy(X, y, w))
+            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1])
+            tepoch.update()
+            if np.linalg.norm(grad) <= tol:
+                print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
+                break
+    return w, losses, accuracy, steps
