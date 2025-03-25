@@ -1,0 +1,11 @@
+Armijo raggiunge tolleranza 1062 epoche
+
+Armijo NoTune raggiunge tolleranza 155 epoche
+ 
+Armijo Polyak segna overflow e poi raggiunge tolleranza in 98 epoche
+
+Nonmonotone raggiunge tolleranza in 1071 epoche
+
+Nonmonotone NoTune segna overflow e NON raggiunge tolleranza
+
+Nonmonotone Polyak NON raggiunge tolleranza

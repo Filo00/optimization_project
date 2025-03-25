@@ -1,6 +1,6 @@
-# first line: 67
+# first line: 51
 @mem.cache
-def load_a4a(disp=False):
+def load_a4a(): # a4a dataset, 123 features, 4781 samples, test set 27780 samples, 2 class
     path_train = "./dataset/a4a"
     X_train, y_train = load_svmlight_file(path_train)
 
@@ -10,8 +10,4 @@ def load_a4a(disp=False):
     # add constant column
     X_train_prep = add_intercept(X_train)[:, :120]
     X_test_prep = add_intercept(X_test)[:, :120]
-
-    if disp:
-        train_sklearn_log(X_train_prep, y_train, X_test_prep, y_test)
-
     return X_train_prep, y_train, X_test_prep, y_test

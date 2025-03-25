@@ -50,7 +50,7 @@ def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
                 break
     return w, losses, accuracy, steps
 
-def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.5):   # gamme = 1e-4
+def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.8):   # gamme = 1e-4
     """
     Cerca un passo che soddisfa la condizione di Armijo.
     """
@@ -60,6 +60,7 @@ def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.5):   # ga
         alpha *= delta  # Riduzione del passo
         i += 1
     #print("it per step: " + str(i))
+    #alpha = max(alpha, 10)
     return alpha, i
 
 def fixed_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4):
@@ -77,6 +78,7 @@ def armijo_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, delta=0
         alpha *= delta  # Riduzione del passo
         i += 1
     #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
+    #alpha = max(alpha, 10)
     return alpha, i
 
 def euristic_initial_step(alpha, num_backtrack):
@@ -84,8 +86,8 @@ def euristic_initial_step(alpha, num_backtrack):
         delta = np.clip(np.random.normal(0.5, 1), 0.1, 0.9)
         #print("Passo ingrandito di un coefficiente 1/" + str(delta))
         alpha = alpha * (1 / (delta))
-        alpha = min(alpha, 10) # Il passo esplodeva
-        return alpha
+        #alpha = min(alpha, 10)
+        return min(alpha, 20)
     else:
         return alpha
 
@@ -118,8 +120,10 @@ def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, lam,
 def polyak_initial_step(X, y, w, lam, f, grad_fun, f_min=1e-6):
     grad_norm_sq = np.linalg.norm(grad_fun(X, y, w, lam)) ** 2
     if grad_norm_sq == 0:
-        return 1e-3  # Evita divisioni per zero se si trova in un minimo, restituendo un passo piccolo
-    return max((f(X, y, w, lam) - f_min) / grad_norm_sq, 1e-6)  # Imposta un valore minimo per stabilità
+        return 1e-6  # Evita divisioni per zero se si trova in un minimo, restituendo un passo piccolo
+    alpha = (f(X, y, w, lam) - f_min) / grad_norm_sq # f(x) - f_min / ||grad f(x)||^2
+    alpha = min(alpha, 20)
+    return alpha
 
 def armijo_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, tol, delta=0.5, gamma=0.5):
     """
@@ -132,6 +136,7 @@ def armijo_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, tol, delt
         alpha *= delta  # Riduzione del passo
         i += 1
     #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
+    #alpha = max(alpha, 10) # Nel paper limitano a 10
     return alpha, i
 
 def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
@@ -158,18 +163,19 @@ def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, t
     return w, losses, accuracy, steps
 
 
-def nonmonotone_line_search(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.7, delta=0.5, gamma=0.5):
+def nonmonotone_line_search(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5):
     alpha = 1
     i = 0
     Qk_new = xi * Qk + 1
-    C_tilde = (xi * Qk * Ck + f(X, y, w, lam)) / (Qk_new)
-    Ck_new = max(C_tilde, f(X, y, w, lam))
+    C_tilde = (xi * Qk * Ck + f(X, y, w, lam)) / (Qk_new) # Ck_tilde = (xi * Qk * Ck + f(x)) / (Qk + 1)
+    Ck_new = max(C_tilde, f(X, y, w, lam)) # Ck = max {Ck_tilde, f(x)}
 
     # Condizione nonmonotona
-    while f(X, y, w + alpha * d, lam) > Ck_new - gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+    while f(X, y, w + alpha * d, lam) > Ck_new + gamma * alpha * np.dot(grad_f(X, y, w, lam), d): # f(x + alpha * d) > Ck - gamma * alpha * grad_f(x)^T * d
         alpha *= delta  # Backtracking
         i += 1
     #print(f"Passo finale: {alpha} - Num backtrack: {i}")
+    #alpha = max(alpha, 10)
     return alpha, i, Ck_new, Qk_new
 
 def gradient_descent_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
@@ -197,7 +203,7 @@ def gradient_descent_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, s
     return w, losses, accuracy, steps
 
 
-def nonmonotone_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.7, delta=0.5, gamma=0.5, initial_step = 1, num_backtrack = 0):
+def nonmonotone_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5, initial_step = 1, num_backtrack = 0):
     """
     Cerca un passo che soddisfa la condizione nonmonotona con passo iniziale scelto con euristica
     """
@@ -208,10 +214,11 @@ def nonmonotone_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, Ck
     C_tilde = (xi * Qk * Ck + f(X, y, w, lam)) / (Qk_new)
     Ck_new = max(C_tilde, f(X, y, w, lam))
     # Condizione nonmonotona
-    while f(X, y, w + alpha * d, lam) > Ck_new - gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+    while f(X, y, w + alpha * d, lam) > Ck_new + gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
         alpha *= delta  # Backtracking
         i += 1
     #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
+    #alpha = max(alpha, 10)
     return alpha, i, Ck_new, Qk_new
 
 def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
@@ -227,7 +234,7 @@ def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun,
         for epoch in tepoch:
             tepoch.set_description(f"Epoch {epoch}")
             grad = grad_fun(X, y, w, lam)
-            alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk, xi=0.3, delta=0.5, gamma=0.5, initial_step = alpha, num_backtrack = num_backtrack)
+            alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5, initial_step = alpha, num_backtrack = num_backtrack)
             w -= alpha * grad
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
@@ -240,7 +247,7 @@ def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun,
                 break
     return w, losses, accuracy, steps
 
-def nonmonotone_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.7, delta=0.5, gamma=0.5):
+def nonmonotone_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5):
     #print("Passo iniziale K: " + str(initial_step) + " - Num backtrack: " + str(num_backtrack))
     alpha = polyak_initial_step(X, y, w, lam, f, grad_f)
     i = 0
@@ -248,10 +255,11 @@ def nonmonotone_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, Ck, 
     C_tilde = (xi * Qk * Ck + f(X, y, w, lam)) / (Qk_new)
     Ck_new = max(C_tilde, f(X, y, w, lam))
     # Condizione nonmonotona
-    while f(X, y, w + alpha * d, lam) > Ck_new - gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
+    while f(X, y, w + alpha * d, lam) > Ck_new + gamma * alpha * np.dot(grad_f(X, y, w, lam), d):
         alpha *= delta  # Backtracking
         i += 1
     #print("Passo finale k+1: " + str(alpha) + " - Num backtrack: " + str(i))
+    #alpha = max(alpha, 10)
     return alpha, i, Ck_new, Qk_new
 
 def gradient_descent_polyak_initial_step_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
