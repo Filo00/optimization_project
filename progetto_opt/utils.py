@@ -25,11 +25,16 @@ def plot_fun(losses, title="", nameFile=""):
     #plt.show()
 
 
-def plot(losses, dir, title="", nameFile=""):
+def plot(losses, dir, title="", nameFile="", scaleX=None, scaleY=None):
     path = "./plot/" + dir + "/" + nameFile + ".pdf"
     fig, ax = plt.subplots()
     ax.plot(losses, color="b")
 
+    # Add log scale on x and y
+    if scaleX:
+        ax.set_xscale(scaleX)
+    if scaleY:
+        ax.set_yscale(scaleY)
     # Add title and labels
     ax.set_title(title)
     ax.set_xlabel('Iterazioni')
