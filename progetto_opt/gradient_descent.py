@@ -4,6 +4,42 @@ import utils
 from tqdm import tqdm
 
 
+def compute_hessian(X, y, w, lam, loss_fun, grad_fun):
+    """
+    Compute the Hessian matrix numerically.
+    """
+    p = w.shape[0]
+    epsilon = 1e-5
+    hessian = np.zeros((p, p))
+
+    for i in range(p):
+        w1 = w.copy()
+        w2 = w.copy()
+        w1[i] += epsilon
+        w2[i] -= epsilon
+        grad1 = grad_fun(X, y, w1, lam)
+        grad2 = grad_fun(X, y, w2, lam)
+        hessian[:, i] = (grad1 - grad2) / (2 * epsilon)
+
+    return hessian
+
+
+def evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha):
+    """
+    Compute the sharpness using the top eigenvalue of the Hessian.
+    """
+    hessian = compute_hessian(X, y, w, lam, loss_fun, grad_fun)
+    eigenvalues = np.linalg.eigvalsh(hessian)
+    return np.max(eigenvalues)
+
+'''def evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha):
+    # DUBBIO, l'alpha deve essere del w o del w_old?
+    squared_norm_funct = np.linalg.norm(grad_fun(X, y, w_old, lam)) ** 2
+    Lapprox = ((2 * (loss_fun(X, y, w, lam) - loss_fun(X, y, w_old, lam))) /
+               ((alpha ** 2) * squared_norm_funct)) + 2 / alpha
+    return Lapprox'''
+
+
 def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
     """
     Esegue il metodo del gradiente per minimizzare una funzione di loss.
@@ -50,7 +86,7 @@ def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
             sharp_list.append(sharp)
             sharp_stepsize.append(sharp * alpha)
             accuracy.append(utils.evaluate_accuracy(X, y, w))
-            tepoch.set_postfix(loss=loss, step_iter=backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy = accuracy[-1])
+            tepoch.set_postfix(loss=loss, step_iter=backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy = accuracy[-1], sharp_step = (sharp * alpha))
             tepoch.update()
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
@@ -72,13 +108,6 @@ def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.8):   # ga
 
 def fixed_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=1e-4):
     return 0.02, 0
-
-def evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha):
-    # DUBBIO, l'alpha deve essere del w o del w_old?
-    squared_norm_funct = np.linalg.norm(grad_fun(X, y, w_old, lam)) ** 2
-    Lapprox = ((2 * (loss_fun(X, y, w, lam) - loss_fun(X, y, w_old, lam))) /
-               ((alpha ** 2) * squared_norm_funct)) + 2 / alpha
-    return Lapprox
 
 def armijo_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.5, initial_step = 1, num_backtrack = 0):
     """
@@ -129,7 +158,7 @@ def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, lam,
             sharp_list.append(sharp)
             sharp_stepsize.append(sharp * alpha)
             accuracy.append(utils.evaluate_accuracy(X, y, w))
-            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1])
+            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1], sharp_step = (sharp * alpha))
             tepoch.update()
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
@@ -180,7 +209,7 @@ def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, t
             sharp_list.append(sharp)
             sharp_stepsize.append(sharp * alpha)
             accuracy.append(utils.evaluate_accuracy(X, y, w))
-            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1])
+            tepoch.set_postfix(loss=loss, step_iter=num_backtrack, step_value = alpha, grad_norm=np.linalg.norm(grad), accuracy=accuracy[-1], sharp_step = (sharp * alpha))
             tepoch.update()
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))

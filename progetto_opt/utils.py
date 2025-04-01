@@ -54,7 +54,7 @@ def evaluate_accuracy(X_test, y_test, w):
 
 mem = Memory("./mycache")
 @mem.cache
-def load_a4a(): # a4a dataset, 123 features, 4781 samples, test set 27780 samples, 2 class
+def load_a4a():
     path_train = "./dataset/a4a"
     X_train, y_train = load_svmlight_file(path_train)
 
@@ -64,7 +64,30 @@ def load_a4a(): # a4a dataset, 123 features, 4781 samples, test set 27780 sample
     # add constant column
     X_train_prep = add_intercept(X_train)[:, :120]
     X_test_prep = add_intercept(X_test)[:, :120]
-    return X_train_prep, y_train, X_test_prep, y_test
+    return X_train_prep, y_train, X_test_prep, y_test, "a4a"
+
+def load_a6a():
+    path_train = "./dataset/a6a"
+    X_train, y_train = load_svmlight_file(path_train)
+
+    path_test = "./dataset/a6a.t"
+    X_test, y_test = load_svmlight_file(path_test)
+
+
+    X_train_prep = add_intercept(X_train)[:, :120]
+    X_test_prep = add_intercept(X_test)[:, :120]
+    return X_train_prep, y_train, X_test_prep, y_test, "a6a"
+
+def load_a8a():
+    path_train = "./dataset/a8a"
+    X_train, y_train = load_svmlight_file(path_train)
+
+    path_test = "./dataset/a8a.t"
+    X_test, y_test = load_svmlight_file(path_test)
+
+    X_train_prep = add_intercept(X_train)[:, :120]
+    X_test_prep = add_intercept(X_test)[:, :120]
+    return X_train_prep, y_train, X_test_prep, y_test, "a8a"
 
 def add_intercept(X):
     ones = lil_matrix(np.ones((X.shape[0], 1)))
