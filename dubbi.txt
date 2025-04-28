@@ -1,3 +1,0 @@
-Mettere scala logaritmica
-La sharpness si trova utilizzando la formula Lapprox nell'appendice B
-Generare i tre grafici del paper per 3 dataset diversi
