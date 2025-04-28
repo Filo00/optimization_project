@@ -4,74 +4,24 @@ import utils
 from tqdm import tqdm
 
 
-def compute_hessian(X, y, w, lam, loss_fun, grad_fun):
-    """
-    Compute the Hessian matrix numerically.
-    """
-    p = w.shape[0]
-    epsilon = 1e-5
-    hessian = np.zeros((p, p))
 
-    for i in range(p):
-        w1 = w.copy()
-        w2 = w.copy()
-        w1[i] += epsilon
-        w2[i] -= epsilon
-        grad1 = grad_fun(X, y, w1, lam)
-        grad2 = grad_fun(X, y, w2, lam)
-        hessian[:, i] = (grad1 - grad2) / (2 * epsilon)
-
-    return hessian
-
-
-def evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha):
-    """
-    Compute the sharpness using the top eigenvalue of the Hessian.
-    """
-    hessian = compute_hessian(X, y, w, lam, loss_fun, grad_fun)
-    eigenvalues = np.linalg.eigvalsh(hessian)
-    return np.max(eigenvalues)
-
-'''def evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha):
-    # DUBBIO, l'alpha deve essere del w o del w_old?
+def evaluate_lapprox(X, y, w_old, w, lam, loss_fun, grad_fun, alpha):
     squared_norm_funct = np.linalg.norm(grad_fun(X, y, w_old, lam)) ** 2
     Lapprox = ((2 * (loss_fun(X, y, w, lam) - loss_fun(X, y, w_old, lam))) /
                ((alpha ** 2) * squared_norm_funct)) + 2 / alpha
-    return Lapprox'''
+    return Lapprox
 
+def evaluate_sharpness(H):
+    return max(np.linalg.eigvals(H))
 
-def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
-    """
-    Esegue il metodo del gradiente per minimizzare una funzione di loss.
-
-    Parameters:
-    X : numpy.ndarray
-        Matrice delle caratteristiche di dimensione (N, p).
-    y : numpy.ndarray
-        Vettore dei target di dimensione (N,).
-    loss_fun : callable
-        Funzione di loss.
-    grad_fun : callable
-        Gradiente della funzione di loss.
-    lam : float
-        Parametro di regolarizzazione L2.
-    tol : float
-        Tolleranza per la convergenza.
-    max_iter : int
-        Numero massimo di iterazioni
-    step_method : callable
-        Metodo per calcolare il passo.
-
-    Returns:
-    tuple
-        Vettore dei pesi di dimensione (p,) e lista delle perdite.
-    """
+def gradient_descent(X, y, loss_fun, grad_fun, hessian, lam, tol, max_iter, step_method):
     w = np.random.rand(X.shape[1])
     losses = []
     accuracy = []
     steps = []
     sharp_list = []
     sharp_stepsize = []
+    lapprox = []
     with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
         for epoch in tepoch:
             tepoch.set_description(f"Epoch {epoch}")
@@ -79,7 +29,10 @@ def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
             w_old = w
             alpha, backtrack= step_method(X, y, w, lam, loss_fun, -grad, grad_fun)
             w -= alpha * grad
-            sharp = evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            H = hessian(X, y, w, lam)
+            sharp = evaluate_sharpness(H)
+            lappr = evaluate_lapprox(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            lapprox.append(lappr)
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
             steps.append(alpha)
@@ -91,7 +44,7 @@ def gradient_descent(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
                 break
-    return w, losses, accuracy, steps, sharp_list, sharp_stepsize
+    return w, losses, accuracy, steps, sharp_list, sharp_stepsize, lapprox
 
 def armijo_line_search(X, y, w, lam, f, d, grad_f, delta=0.5, gamma=0.8):   # gamme = 1e-4
     """
@@ -134,13 +87,14 @@ def euristic_initial_step(alpha, num_backtrack):
         return alpha
 
 
-def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, hessian, lam, tol, max_iter, step_method):
     w = np.random.rand(X.shape[1])
     losses = []
     accuracy = []
     steps = []
     sharp_list = []
     sharp_stepsize = []
+    lapprox = []
     num_backtrack = 0
     alpha = 1 # Initial step for euristic
     #for i in range(max_iter):
@@ -151,7 +105,10 @@ def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, lam,
             w_old = w
             alpha, num_backtrack = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, initial_step = alpha, num_backtrack = num_backtrack)
             w -= alpha * grad
-            sharp = evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            H = hessian(X, y, w, lam)
+            sharp = evaluate_sharpness(H)
+            lappr = evaluate_lapprox(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            lapprox.append(lappr)
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
             steps.append(alpha)
@@ -163,7 +120,7 @@ def gradient_descent_euristic_initial_step_armijo(X, y, loss_fun, grad_fun, lam,
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
                 break
-    return w, losses, accuracy, steps, sharp_list, sharp_stepsize
+    return w, losses, accuracy, steps, sharp_list, sharp_stepsize, lapprox
 
 def polyak_initial_step(X, y, w, lam, f, grad_fun, f_min=1e-6):
     grad_norm_sq = np.linalg.norm(grad_fun(X, y, w, lam)) ** 2
@@ -187,13 +144,14 @@ def armijo_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, tol, delt
     #alpha = max(alpha, 10) # Nel paper limitano a 10
     return alpha, i
 
-def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, hessian, lam, tol, max_iter, step_method):
     w = np.random.rand(X.shape[1])
     losses = []
     accuracy = []
     steps = []
     sharp_list = []
     sharp_stepsize = []
+    lapprox = []
     #for i in range(max_iter):
     with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
         for epoch in tepoch:
@@ -202,7 +160,10 @@ def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, t
             alpha, num_backtrack = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, tol)
             w_old = w
             w -= alpha * grad
-            sharp = evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            H = hessian(X, y, w, lam)
+            sharp = evaluate_sharpness(H)
+            lappr = evaluate_lapprox(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            lapprox.append(lappr)
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
             steps.append(alpha)
@@ -214,7 +175,7 @@ def gradient_descent_polyak_initial_step_armijo(X, y, loss_fun, grad_fun, lam, t
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
                 break
-    return w, losses, accuracy, steps, sharp_list, sharp_stepsize
+    return w, losses, accuracy, steps, sharp_list, sharp_stepsize, lapprox
 
 
 def nonmonotone_line_search(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5):
@@ -232,13 +193,14 @@ def nonmonotone_line_search(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.5, delta=0.
     #alpha = max(alpha, 10)
     return alpha, i, Ck_new, Qk_new
 
-def gradient_descent_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+def gradient_descent_nonmonotone(X, y, loss_fun, grad_fun, hessian, lam, tol, max_iter, step_method):
     w = np.random.rand(X.shape[1])
     losses = []
     accuracy = []
     steps = []
     sharp_list = []
     sharp_stepsize = []
+    lapprox = []
     Ck = 0
     Qk = 0
     with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
@@ -248,7 +210,10 @@ def gradient_descent_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, s
             alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk)
             w_old = w
             w -= alpha * grad
-            sharp = evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            H = hessian(X, y, w, lam)
+            sharp = evaluate_sharpness(H)
+            lappr = evaluate_lapprox(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            lapprox.append(lappr)
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
             steps.append(alpha)
@@ -260,7 +225,7 @@ def gradient_descent_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, s
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
                 break
-    return w, losses, accuracy, steps, sharp_list, sharp_stepsize
+    return w, losses, accuracy, steps, sharp_list, sharp_stepsize, lapprox
 
 
 def nonmonotone_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5, initial_step = 1, num_backtrack = 0):
@@ -281,13 +246,14 @@ def nonmonotone_line_search_euristic_initial_step(X, y, w, lam, f, d, grad_f, Ck
     #alpha = max(alpha, 10)
     return alpha, i, Ck_new, Qk_new
 
-def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun, hessian, lam, tol, max_iter, step_method):
     w = np.random.rand(X.shape[1])
     losses = []
     accuracy = []
     steps = []
     sharp_list = []
     sharp_stepsize = []
+    lapprox = []
     Ck = 0
     Qk = 0
     num_backtrack = 0
@@ -299,7 +265,10 @@ def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun,
             alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5, initial_step = alpha, num_backtrack = num_backtrack)
             w_old = w
             w -= alpha * grad
-            sharp = evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            H = hessian(X, y, w, lam)
+            sharp = evaluate_sharpness(H)
+            lappr = evaluate_lapprox(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            lapprox.append(lappr)
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
             steps.append(alpha)
@@ -311,7 +280,7 @@ def gradient_descent_euristic_initial_step_nonmonotone(X, y, loss_fun, grad_fun,
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
                 break
-    return w, losses, accuracy, steps, sharp_list, sharp_stepsize
+    return w, losses, accuracy, steps, sharp_list, sharp_stepsize, lapprox
 
 def nonmonotone_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, Ck, Qk, xi=0.5, delta=0.5, gamma=0.5):
     #print("Passo iniziale K: " + str(initial_step) + " - Num backtrack: " + str(num_backtrack))
@@ -328,13 +297,14 @@ def nonmonotone_line_search_polyak_initial_step(X, y, w, lam, f, d, grad_f, Ck, 
     #alpha = max(alpha, 10)
     return alpha, i, Ck_new, Qk_new
 
-def gradient_descent_polyak_initial_step_nonmonotone(X, y, loss_fun, grad_fun, lam, tol, max_iter, step_method):
+def gradient_descent_polyak_initial_step_nonmonotone(X, y, loss_fun, grad_fun, hessian, lam, tol, max_iter, step_method):
     w = np.random.rand(X.shape[1])
     losses = []
     accuracy = []
     steps = []
     sharp_list = []
     sharp_stepsize = []
+    lapprox = []
     Ck = 0
     Qk = 0
     with tqdm(range(max_iter), unit="iter", total=max_iter) as tepoch:
@@ -344,7 +314,10 @@ def gradient_descent_polyak_initial_step_nonmonotone(X, y, loss_fun, grad_fun, l
             alpha, num_backtrack, Ck, Qk = step_method(X, y, w, lam, loss_fun, -grad, grad_fun, Ck, Qk)
             w_old = w
             w -= alpha * grad
-            sharp = evaluate_sharpness(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            H = hessian(X, y, w, lam)
+            sharp = evaluate_sharpness(H)
+            lappr = evaluate_lapprox(X, y, w_old, w, lam, loss_fun, grad_fun, alpha)
+            lapprox.append(lappr)
             loss = loss_fun(X, y, w, lam)
             losses.append(loss)
             steps.append(alpha)
@@ -356,4 +329,4 @@ def gradient_descent_polyak_initial_step_nonmonotone(X, y, loss_fun, grad_fun, l
             if np.linalg.norm(grad) <= tol:
                 print("Tolleranza raggiunta - num iterazioni: " + str(epoch))
                 break
-    return w, losses, accuracy, steps, sharp_list, sharp_stepsize
+    return w, losses, accuracy, steps, sharp_list, sharp_stepsize, lapprox
