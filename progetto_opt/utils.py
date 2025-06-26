@@ -22,7 +22,6 @@ def plot_fun(losses, title="", nameFile=""):
     plt.xscale("log")
     plt.legend()
     plt.savefig(path)
-    #plt.show()
 
 
 def plot(losses, dir, title="", nameFile="", scaleX=None, scaleY=None):
@@ -30,17 +29,14 @@ def plot(losses, dir, title="", nameFile="", scaleX=None, scaleY=None):
     fig, ax = plt.subplots()
     ax.plot(losses, color="b")
 
-    # Add log scale on x and y
     if scaleX:
         ax.set_xscale(scaleX)
     if scaleY:
         ax.set_yscale(scaleY)
-    # Add title and labels
     ax.set_title(title)
     ax.set_xlabel('Iterazioni')
     ax.set_ylabel(title)
 
-    # Add a grid
     ax.grid(True)
     plt.savefig(path)
 

@@ -122,9 +122,6 @@ def execute_experiment(load_dataset_funct):
 
 
 if __name__ == '__main__':
-    #X, y = utils.generate_synthetic_data(10000, 100, 69)
-    #X_test, y_test = utils.generate_synthetic_data(10000, 100, 12)
     execute_experiment(utils.load_a4a)
     execute_experiment(utils.load_a6a)
     execute_experiment(utils.load_a8a)
-    # IMPORTANTE, FARE RELAZIONE E METTERE I GRAFICI, POI SENTIRE LAPUX SE PER SHARPNESS E' OK Lapprox O SE DEVO USARE MAX(autovalori(hessiana))
